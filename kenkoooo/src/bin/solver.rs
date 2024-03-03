@@ -76,7 +76,7 @@ fn main() {
 
     let base = Rc::new(board);
     let mut states = vec![];
-    for _ in 0..width {
+    for _ in 0..n {
         let pos1 = (rng.gen_range(0..n), rng.gen_range(0..n));
         let pos2 = (rng.gen_range(0..n), rng.gen_range(0..n));
 
