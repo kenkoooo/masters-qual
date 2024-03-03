@@ -8,8 +8,8 @@ const D: usize = 2;
 const L: usize = 3;
 const STAY: usize = 4;
 
-const X: [usize; 5] = [0, 1, 0, !0, 0];
-const Y: [usize; 5] = [!0, 0, 1, 0, 0];
+const Y: [usize; 5] = [0, 1, 0, !0, 0];
+const X: [usize; 5] = [!0, 0, 1, 0, 0];
 
 fn main() {
     let _ = StdRng::seed_from_u64(71);
