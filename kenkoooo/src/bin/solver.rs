@@ -12,12 +12,12 @@ const X: [usize; 5] = [0, 1, 0, !0, 0];
 const Y: [usize; 5] = [!0, 0, 1, 0, 0];
 
 fn main() {
-    let mut rng = StdRng::seed_from_u64(71);
+    let _ = StdRng::seed_from_u64(71);
 
     let (r, w) = (std::io::stdin(), std::io::stdout());
     let mut sc = IO::new(r.lock(), w.lock());
 
-    let generation: i32 = sc.read();
+    let _: i32 = sc.read();
     let n: usize = sc.read();
 
     let mut paths = vec![vec![vec![false; 4]; n]; n];
@@ -83,40 +83,41 @@ fn main() {
     const SIZE: usize = 200;
 
     let start = std::time::Instant::now();
-    for turn in 0..(4 * n * n) {
+    for _turn in 0..(4 * n * n) {
         if start.elapsed().as_millis() > 1800 {
             break;
         }
         while let Some(state) = heap.pop() {
             let (i1, j1) = state.pos1;
             let (i2, j2) = state.pos2;
-            for swap in 0..2 {
-                for move1 in 0..5 {
-                    if move1 != STAY && !paths[i1][j1][move1] {
+
+            for move1 in 0..5 {
+                if move1 != STAY && !paths[i1][j1][move1] {
+                    continue;
+                }
+
+                let ni1 = i1.wrapping_add(X[move1]);
+                let nj1 = j1.wrapping_add(Y[move1]);
+                if ni1 >= n || nj1 >= n {
+                    continue;
+                }
+
+                for move2 in 0..5 {
+                    if move2 != STAY && !paths[i2][j2][move2] {
                         continue;
                     }
 
-                    let ni1 = i1.wrapping_add(X[move1]);
-                    let nj1 = j1.wrapping_add(Y[move1]);
-                    if ni1 >= state.n || nj1 >= state.n {
+                    let ni2 = i2.wrapping_add(X[move2]);
+                    let nj2 = j2.wrapping_add(Y[move2]);
+                    if ni2 >= n || nj2 >= n {
                         continue;
                     }
 
-                    for move2 in 0..5 {
-                        if move2 != STAY && !paths[i2][j2][move2] {
-                            continue;
-                        }
+                    if move1 == STAY && move2 == STAY {
+                        continue;
+                    }
 
-                        let ni2 = i2.wrapping_add(X[move2]);
-                        let nj2 = j2.wrapping_add(Y[move2]);
-                        if ni2 >= state.n || nj2 >= state.n {
-                            continue;
-                        }
-
-                        if move1 == STAY && move2 == STAY {
-                            continue;
-                        }
-
+                    for swap in 0..2 {
                         let mut state = state.clone();
                         if swap == 1 {
                             state.swap();
@@ -247,7 +248,7 @@ impl Ord for State {
 }
 
 impl PartialEq for State {
-    fn eq(&self, other: &Self) -> bool {
+    fn eq(&self, _: &Self) -> bool {
         false
     }
 }
