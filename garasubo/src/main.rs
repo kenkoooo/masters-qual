@@ -72,21 +72,32 @@ fn main() {
     let n: usize = sc.next();
     let mut v: Vec<Vec<bool>> = vec![vec![true; n+2]; n+2];
     let mut h: Vec<Vec<bool>> = vec![vec![true; n+2]; n+2];
-    for i in 0..n-1 {
-        let vs: Vec<usize> = sc.next_vec();
-        for j in 0..n-2 {
-            if vs[j] == 0 {
-                v[i+1][j+1] = false
+    for i in 0..n {
+        let vs = sc.next_line_chars();
+        for j in 0..n-1 {
+            if vs[j] == '0' {
+                v[i+1][j+1] = false;
             }
         }
     }
-    for i in 0..n-2 {
-        let hs: Vec<usize> = sc.next_vec();
-        for j in 0..n-1 {
-            if hs[j] == 0 {
-                h[i+1][j+1] = false
+    for i in 0..n-1 {
+        let hs = sc.next_line_chars();
+        for j in 0..n {
+            if hs[j] == '0' {
+                h[i+1][j+1] = false;
             }
         }
+    }
+    let mut a: Vec<Vec<usize>> = Vec::new();
+    for i in 0..n {
+        let row: Vec<usize> = sc.next_vec();
+        a.push(row);
     }
 
+    // 初期位置決め
+    let p = (0, 0);
+    let q = (0, 0);
+
+    // 出力
+    println!("{} {} {} {}", p.0, p.1, q.0, q.1);
 }
