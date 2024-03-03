@@ -73,19 +73,19 @@ fn main() {
         }
         match move1.as_str() {
             "U" => {
-                assert!(paths[i1][j1][U]);
+                assert!(paths[i1][j1][U], "turn={turn} i2={i1} j2={j1}");
                 i1 -= 1;
             }
             "R" => {
-                assert!(paths[i1][j1][R]);
+                assert!(paths[i1][j1][R], "turn={turn} i2={i1} j2={j1}");
                 j1 += 1;
             }
             "D" => {
-                assert!(paths[i1][j1][D]);
+                assert!(paths[i1][j1][D], "turn={turn} i2={i1} j2={j1}");
                 i1 += 1;
             }
             "L" => {
-                assert!(paths[i1][j1][L]);
+                assert!(paths[i1][j1][L], "turn={turn} i2={i1} j2={j1}");
                 j1 -= 1;
             }
             "." => {}

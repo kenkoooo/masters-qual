@@ -1,3 +1,4 @@
+use std::cmp;
 use rand::{rngs::StdRng, SeedableRng};
 
 const U: usize = 0;
@@ -9,8 +10,17 @@ const STAY: usize = 4;
 const I: [usize; 5] = [!0, 0, 1, 0, 0];
 const J: [usize; 5] = [0, 1, 0, !0, 0];
 
-const BEAM: usize = 1;
 
+fn decide_beam_width(turn: usize, n: usize, elasped: u128) -> usize {
+    if elasped > 1700 {
+        1
+    } else if elasped > 1000 {
+        let min_beam = 10;
+        cmp::max(min_beam, 200 * (elasped as usize - 1000) / 1000)
+    } else {
+        200
+    }
+}
 fn main() {
     let _ = StdRng::seed_from_u64(71);
 
@@ -72,19 +82,44 @@ fn main() {
     }
 
     let mut states = vec![];
-    states.push(State {
+
+
+    let initial_state =State {
         board,
         score,
         pos1: (0, 0),
         pos2: (n - 1, n - 1),
+        ipos1: (0, 0),
+        ipos2: (n - 1, n - 1),
         n,
         log: vec![],
-    });
+    };
+    let mut poss = vec![];
+    for i in 0..n {
+        for j in 0..n {
+            poss.push((initial_state.point_score(i, j), i, j));
+        }
+    }
+    poss.sort_by(|a, b| b.0.cmp(&a.0));
+    for i in 0..5 {
+        for j in 0..5 {
+            if i == j {
+                continue;
+            }
+            let mut state = initial_state.clone();
+            state.pos1 = (poss[i].1, poss[i].2);
+            state.ipos1 = (poss[i].1, poss[i].2);
+            state.pos2 = (poss[j].1, poss[j].2);
+            state.ipos2 = (poss[j].1, poss[j].2);
+            states.push(state);
+        }
+    }
+    states.push(initial_state);
 
     let mut next = vec![];
 
     let start = std::time::Instant::now();
-    for _turn in 0..(4 * n * n) {
+    for turn in 0..(4 * n * n) {
         if start.elapsed().as_millis() > 1800 {
             break;
         }
@@ -134,7 +169,7 @@ fn main() {
         }
 
         next.sort_unstable_by_key(|state| state.score);
-        next.truncate(BEAM);
+        next.truncate(decide_beam_width(turn, n, start.elapsed().as_millis()));
         states = vec![];
         (states, next) = (next, states);
 
@@ -143,7 +178,7 @@ fn main() {
 
     let state = states.into_iter().min_by_key(|s| s.score).unwrap();
     eprintln!("score={} hands={}", state.score, state.log.len());
-    sc.write(format!("0 0 {} {}\n", n - 1, n - 1));
+    sc.write(format!("{} {} {} {}\n", state.ipos1.0, state.ipos1.1, state.ipos2.0, state.ipos2.1));
 
     for i in 0..(4 * n * n) {
         if i >= state.log.len() {
@@ -186,14 +221,15 @@ impl State {
         let a2 = self.board[i2 * self.n + j2];
 
         self.pull(i1, j1);
-        self.push(i1, j1, a2);
-
         self.pull(i2, j2);
-        self.push(i2, j2, a1);
+        self.board[i1 * self.n + j1] = a2;
+        self.board[i2 * self.n + j2] = a1;
+        self.push(i1, j1);
+        self.push(i2, j2);
     }
 
-    fn pull(&mut self, i: usize, j: usize) {
-        let mut remove = 0;
+    fn point_score(&self, i: usize, j: usize) -> i64 {
+        let mut score = 0;
         let a = self.board[i * self.n + j];
         for d in 0..4 {
             let ni = i.wrapping_add(I[d]);
@@ -204,27 +240,19 @@ impl State {
 
             let b = self.board[ni * self.n + nj];
             let da = a - b;
-            remove += da * da;
+            score += da * da;
         }
-
-        self.score -= remove;
-        self.board[i * self.n + j] = 0;
+        score
     }
 
-    fn push(&mut self, i: usize, j: usize, a: i64) {
-        let mut add = 0;
-        self.board[i * self.n + j] = a;
-        for d in 0..4 {
-            let ni = i.wrapping_add(I[d]);
-            let nj = j.wrapping_add(J[d]);
-            if ni >= self.n || nj >= self.n {
-                continue;
-            }
+    fn pull(&mut self, i: usize, j: usize) {
+        let remove = self.point_score(i, j);
 
-            let b = self.board[ni * self.n + nj];
-            let da = a - b;
-            add += da * da;
-        }
+        self.score -= remove;
+    }
+
+    fn push(&mut self, i: usize, j: usize) {
+        let add = self.point_score(i, j);
 
         self.score += add;
     }
@@ -236,6 +264,8 @@ struct State {
     score: i64,
     pos1: (usize, usize),
     pos2: (usize, usize),
+    ipos1: (usize, usize),
+    ipos2: (usize, usize),
     n: usize,
     log: Vec<(usize, usize, usize)>,
 }
