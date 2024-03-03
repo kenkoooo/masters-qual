@@ -6,6 +6,7 @@ const U: usize = 0;
 const R: usize = 1;
 const D: usize = 2;
 const L: usize = 3;
+const STAY: usize = 4;
 
 const X: [usize; 5] = [0, 1, 0, !0, 0];
 const Y: [usize; 5] = [!0, 0, 1, 0, 0];
@@ -82,15 +83,16 @@ fn main() {
     const SIZE: usize = 200;
 
     let start = std::time::Instant::now();
-    for _ in 0..(4 * n * n) {
-        if start.elapsed().as_millis() > 1900 {
+    for turn in 0..(4 * n * n) {
+        if start.elapsed().as_millis() > 1800 {
             break;
         }
         while let Some(state) = heap.pop() {
+            let (i1, j1) = state.pos1;
+            let (i2, j2) = state.pos2;
             for swap in 0..2 {
                 for move1 in 0..5 {
-                    let (i1, j1) = state.pos1;
-                    if move1 < 4 && !paths[i1][j1][move1] {
+                    if move1 != STAY && !paths[i1][j1][move1] {
                         continue;
                     }
 
@@ -101,8 +103,7 @@ fn main() {
                     }
 
                     for move2 in 0..5 {
-                        let (i2, j2) = state.pos2;
-                        if move2 < 4 && !paths[i2][j2][move2] {
+                        if move2 != STAY && !paths[i2][j2][move2] {
                             continue;
                         }
 
@@ -112,7 +113,7 @@ fn main() {
                             continue;
                         }
 
-                        if move1 == 4 && move2 == 4 {
+                        if move1 == STAY && move2 == STAY {
                             continue;
                         }
 
@@ -141,25 +142,37 @@ fn main() {
 
     let state = heap.pop().unwrap();
     sc.write(format!("0 0 {} {}\n", n - 1, n - 1));
-    for (swap, move1, move2) in state.log {
+
+    for i in 0..(4 * n * n) {
+        if i >= state.log.len() {
+            sc.write("0 . .\n");
+            continue;
+        }
+
+        let (swap, move1, move2) = state.log[i];
         let move1 = match move1 {
-            0 => 'U',
-            1 => 'R',
-            2 => 'D',
-            3 => 'L',
-            4 => '.',
+            U => 'U',
+            R => 'R',
+            D => 'D',
+            L => 'L',
+            STAY => '.',
             _ => unreachable!(),
         };
         let move2 = match move2 {
-            0 => 'U',
-            1 => 'R',
-            2 => 'D',
-            3 => 'L',
-            4 => '.',
+            U => 'U',
+            R => 'R',
+            D => 'D',
+            L => 'L',
+            STAY => '.',
             _ => unreachable!(),
         };
 
-        sc.write(format!("{} {} {}\n", swap, move1, move2));
+        sc.write(swap);
+        sc.write(' ');
+        sc.write(move1);
+        sc.write(' ');
+        sc.write(move2);
+        sc.write('\n');
     }
 }
 
