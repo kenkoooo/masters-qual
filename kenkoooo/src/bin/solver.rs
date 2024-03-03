@@ -1,6 +1,6 @@
-use std::rc::Rc;
+use std::{collections::HashMap, rc::Rc};
 
-use rand::{rngs::StdRng, SeedableRng};
+use rand::{rngs::StdRng, Rng, SeedableRng};
 
 const U: usize = 0;
 const R: usize = 1;
@@ -11,10 +11,9 @@ const STAY: usize = 4;
 const I: [usize; 5] = [!0, 0, 1, 0, 0];
 const J: [usize; 5] = [0, 1, 0, !0, 0];
 
-const BEAM: usize = 1;
-
 fn main() {
-    let _ = StdRng::seed_from_u64(71);
+    let start = std::time::Instant::now();
+    let mut rng = StdRng::seed_from_u64(71);
 
     let (r, w) = (std::io::stdin(), std::io::stdout());
     let mut sc = IO::new(r.lock(), w.lock());
@@ -73,22 +72,35 @@ fn main() {
         }
     }
 
+    let width = (20 * 17 * 17 / n / n).max(10);
+
+    let base = Rc::new(board);
     let mut states = vec![];
-    states.push(State {
-        board,
-        score,
-        pos1: (0, 0),
-        pos2: (n - 1, n - 1),
-        n,
-        log: LinkedNode {
-            prev: None,
-            value: (0, 0, 0),
-        },
-    });
+    for _ in 0..width {
+        let pos1 = (rng.gen_range(0..n), rng.gen_range(0..n));
+        let pos2 = (rng.gen_range(0..n), rng.gen_range(0..n));
+
+        states.push(State {
+            board: SparseBoard {
+                base: base.clone(),
+                overwrite: HashMap::new(),
+                n,
+            },
+            score,
+            pos1,
+            pos2,
+            init1: pos1,
+            init2: pos2,
+            n,
+            log: LinkedNode {
+                prev: None,
+                value: (0, 0, 0),
+            },
+        });
+    }
 
     let mut next = vec![];
 
-    let start = std::time::Instant::now();
     for _turn in 0..(4 * n * n) {
         if start.elapsed().as_millis() > 1800 {
             break;
@@ -139,7 +151,7 @@ fn main() {
         }
 
         next.sort_unstable_by_key(|state| state.score);
-        next.truncate(BEAM);
+        next.truncate(width);
         states = vec![];
         (states, next) = (next, states);
 
@@ -147,20 +159,22 @@ fn main() {
     }
 
     let state = states.into_iter().min_by_key(|s| s.score).unwrap();
-    eprintln!("score={}", state.score);
-    sc.write(format!("0 0 {} {}\n", n - 1, n - 1));
+    sc.write(format!(
+        "{} {} {} {}\n",
+        state.init1.0, state.init1.1, state.init2.0, state.init2.1
+    ));
 
-    let mut log = state.log.dump();
-    assert_eq!(log.pop(), Some((0, 0, 0)));
-    log.reverse();
+    let mut hands = state.log.dump();
+    assert_eq!(hands.pop(), Some((0, 0, 0)));
+    hands.reverse();
 
     for i in 0..(4 * n * n) {
-        if i >= log.len() {
+        if i >= hands.len() {
             sc.write("0 . .\n");
             continue;
         }
 
-        let (swap, move1, move2) = log[i];
+        let (swap, move1, move2) = hands[i];
         let move1 = match move1 {
             U => 'U',
             R => 'R',
@@ -185,25 +199,29 @@ fn main() {
         sc.write(move2);
         sc.write('\n');
     }
+
+    eprintln!(
+        "n={} score={} hands={} time={}",
+        n,
+        state.score,
+        hands.len(),
+        start.elapsed().as_millis()
+    );
 }
 
 impl State {
     fn swap(&mut self) {
         let (i1, j1) = self.pos1;
         let (i2, j2) = self.pos2;
-        let a1 = self.board[i1 * self.n + j1];
-        let a2 = self.board[i2 * self.n + j2];
+        let a1 = self.board.get(i1, j1);
+        let a2 = self.board.get(i2, j2);
 
-        self.pull(i1, j1);
-        self.push(i1, j1, a2);
-
-        self.pull(i2, j2);
-        self.push(i2, j2, a1);
+        self.reset(i1, j1, a2);
+        self.reset(i2, j2, a1);
     }
 
-    fn pull(&mut self, i: usize, j: usize) {
-        let mut remove = 0;
-        let a = self.board[i * self.n + j];
+    fn reset(&mut self, i: usize, j: usize, v: i64) {
+        let a = self.board.get(i, j);
         for d in 0..4 {
             let ni = i.wrapping_add(I[d]);
             let nj = j.wrapping_add(J[d]);
@@ -211,45 +229,31 @@ impl State {
                 continue;
             }
 
-            let b = self.board[ni * self.n + nj];
+            let b = self.board.get(ni, nj);
             let da = a - b;
-            remove += da * da;
+            self.score -= da * da;
+
+            let da = v - b;
+            self.score += da * da;
         }
 
-        self.score -= remove;
-        self.board[i * self.n + j] = 0;
-    }
-
-    fn push(&mut self, i: usize, j: usize, a: i64) {
-        let mut add = 0;
-        self.board[i * self.n + j] = a;
-        for d in 0..4 {
-            let ni = i.wrapping_add(I[d]);
-            let nj = j.wrapping_add(J[d]);
-            if ni >= self.n || nj >= self.n {
-                continue;
-            }
-
-            let b = self.board[ni * self.n + nj];
-            let da = a - b;
-            add += da * da;
-        }
-
-        self.score += add;
+        self.board.set(i, j, v);
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 struct State {
-    board: Vec<i64>,
+    board: SparseBoard,
     score: i64,
     pos1: (usize, usize),
     pos2: (usize, usize),
+    init1: (usize, usize),
+    init2: (usize, usize),
     n: usize,
     log: LinkedNode<(usize, usize, usize)>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 struct LinkedNode<T> {
     prev: Option<Rc<LinkedNode<T>>>,
     value: T,
@@ -272,6 +276,26 @@ impl<T: Clone> LinkedNode<T> {
             cur = prev;
         }
         result
+    }
+}
+
+#[derive(Clone)]
+struct SparseBoard {
+    base: Rc<Vec<i64>>,
+    overwrite: HashMap<usize, i64>,
+    n: usize,
+}
+
+impl SparseBoard {
+    fn get(&self, i: usize, j: usize) -> i64 {
+        if let Some(&a) = self.overwrite.get(&(i * self.n + j)) {
+            a
+        } else {
+            self.base[i * self.n + j]
+        }
+    }
+    fn set(&mut self, i: usize, j: usize, a: i64) {
+        self.overwrite.insert(i * self.n + j, a);
     }
 }
 
