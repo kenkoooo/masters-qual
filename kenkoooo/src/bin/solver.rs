@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use rand::{rngs::StdRng, SeedableRng};
 
 const U: usize = 0;
@@ -78,7 +80,10 @@ fn main() {
         pos1: (0, 0),
         pos2: (n - 1, n - 1),
         n,
-        log: vec![],
+        log: LinkedNode {
+            prev: None,
+            value: (0, 0, 0),
+        },
     });
 
     let mut next = vec![];
@@ -123,7 +128,7 @@ fn main() {
                         if swap == 1 {
                             state.swap();
                         }
-                        state.log.push((swap, move1, move2));
+                        state.log = state.log.push((swap, move1, move2));
                         state.pos1 = (ni1, nj1);
                         state.pos2 = (ni2, nj2);
 
@@ -142,16 +147,20 @@ fn main() {
     }
 
     let state = states.into_iter().min_by_key(|s| s.score).unwrap();
-    eprintln!("score={} hands={}", state.score, state.log.len());
+    eprintln!("score={}", state.score);
     sc.write(format!("0 0 {} {}\n", n - 1, n - 1));
 
+    let mut log = state.log.dump();
+    assert_eq!(log.pop(), Some((0, 0, 0)));
+    log.reverse();
+
     for i in 0..(4 * n * n) {
-        if i >= state.log.len() {
+        if i >= log.len() {
             sc.write("0 . .\n");
             continue;
         }
 
-        let (swap, move1, move2) = state.log[i];
+        let (swap, move1, move2) = log[i];
         let move1 = match move1 {
             U => 'U',
             R => 'R',
@@ -237,7 +246,33 @@ struct State {
     pos1: (usize, usize),
     pos2: (usize, usize),
     n: usize,
-    log: Vec<(usize, usize, usize)>,
+    log: LinkedNode<(usize, usize, usize)>,
+}
+
+#[derive(Clone, Debug)]
+struct LinkedNode<T> {
+    prev: Option<Rc<LinkedNode<T>>>,
+    value: T,
+}
+
+impl<T: Clone> LinkedNode<T> {
+    fn push(self, value: T) -> Self {
+        Self {
+            prev: Some(Rc::new(self)),
+            value,
+        }
+    }
+
+    fn dump(&self) -> Vec<T> {
+        let mut result = vec![];
+        result.push(self.value.clone());
+        let mut cur = Rc::new(self.clone());
+        while let Some(prev) = cur.prev.clone() {
+            result.push(prev.value.clone());
+            cur = prev;
+        }
+        result
+    }
 }
 
 pub struct IO<R, W: std::io::Write>(R, std::io::BufWriter<W>);
