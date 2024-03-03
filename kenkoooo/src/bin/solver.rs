@@ -1,5 +1,3 @@
-use std::collections::BinaryHeap;
-
 use rand::{rngs::StdRng, SeedableRng};
 
 const U: usize = 0;
@@ -8,8 +6,10 @@ const D: usize = 2;
 const L: usize = 3;
 const STAY: usize = 4;
 
-const X: [usize; 5] = [0, 1, 0, !0, 0];
-const Y: [usize; 5] = [!0, 0, 1, 0, 0];
+const I: [usize; 5] = [!0, 0, 1, 0, 0];
+const J: [usize; 5] = [0, 1, 0, !0, 0];
+
+const BEAM: usize = 1;
 
 fn main() {
     let _ = StdRng::seed_from_u64(71);
@@ -23,9 +23,10 @@ fn main() {
     let mut paths = vec![vec![vec![false; 4]; n]; n];
 
     for i in 0..n {
-        let s = sc.chars();
+        let v = sc.chars();
+        assert_eq!(v.len(), n - 1);
         for j in 1..n {
-            if s[j - 1] == '0' {
+            if v[j - 1] == '0' {
                 paths[i][j - 1][R] = true;
                 paths[i][j][L] = true;
             }
@@ -33,9 +34,10 @@ fn main() {
     }
 
     for i in 1..n {
-        let s = sc.chars();
+        let h = sc.chars();
+        assert_eq!(h.len(), n);
         for j in 0..n {
-            if s[j] == '0' {
+            if h[j] == '0' {
                 paths[i - 1][j][D] = true;
                 paths[i][j][U] = true;
             }
@@ -69,8 +71,8 @@ fn main() {
         }
     }
 
-    let mut heap = BinaryHeap::new();
-    heap.push(State {
+    let mut states = vec![];
+    states.push(State {
         board,
         score,
         pos1: (0, 0),
@@ -79,15 +81,14 @@ fn main() {
         log: vec![],
     });
 
-    let mut next = BinaryHeap::new();
-    const SIZE: usize = 200;
+    let mut next = vec![];
 
     let start = std::time::Instant::now();
     for _turn in 0..(4 * n * n) {
         if start.elapsed().as_millis() > 1800 {
             break;
         }
-        while let Some(state) = heap.pop() {
+        for state in states {
             let (i1, j1) = state.pos1;
             let (i2, j2) = state.pos2;
 
@@ -96,8 +97,8 @@ fn main() {
                     continue;
                 }
 
-                let ni1 = i1.wrapping_add(X[move1]);
-                let nj1 = j1.wrapping_add(Y[move1]);
+                let ni1 = i1.wrapping_add(I[move1]);
+                let nj1 = j1.wrapping_add(J[move1]);
                 if ni1 >= n || nj1 >= n {
                     continue;
                 }
@@ -107,8 +108,8 @@ fn main() {
                         continue;
                     }
 
-                    let ni2 = i2.wrapping_add(X[move2]);
-                    let nj2 = j2.wrapping_add(Y[move2]);
+                    let ni2 = i2.wrapping_add(I[move2]);
+                    let nj2 = j2.wrapping_add(J[move2]);
                     if ni2 >= n || nj2 >= n {
                         continue;
                     }
@@ -132,16 +133,16 @@ fn main() {
             }
         }
 
-        while let Some(state) = next.pop() {
-            heap.push(state);
-            if heap.len() == SIZE {
-                break;
-            }
-        }
-        next.clear();
+        next.sort_unstable_by_key(|state| state.score);
+        next.truncate(BEAM);
+        states = vec![];
+        (states, next) = (next, states);
+
+        assert!(states.len() > 0);
     }
 
-    let state = heap.pop().unwrap();
+    let state = states.into_iter().min_by_key(|s| s.score).unwrap();
+    eprintln!("score={} hands={}", state.score, state.log.len());
     sc.write(format!("0 0 {} {}\n", n - 1, n - 1));
 
     for i in 0..(4 * n * n) {
@@ -195,8 +196,8 @@ impl State {
         let mut remove = 0;
         let a = self.board[i * self.n + j];
         for d in 0..4 {
-            let ni = i.wrapping_add(X[d]);
-            let nj = j.wrapping_add(Y[d]);
+            let ni = i.wrapping_add(I[d]);
+            let nj = j.wrapping_add(J[d]);
             if ni >= self.n || nj >= self.n {
                 continue;
             }
@@ -214,8 +215,8 @@ impl State {
         let mut add = 0;
         self.board[i * self.n + j] = a;
         for d in 0..4 {
-            let ni = i.wrapping_add(X[d]);
-            let nj = j.wrapping_add(Y[d]);
+            let ni = i.wrapping_add(I[d]);
+            let nj = j.wrapping_add(J[d]);
             if ni >= self.n || nj >= self.n {
                 continue;
             }
@@ -229,7 +230,7 @@ impl State {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct State {
     board: Vec<i64>,
     score: i64,
@@ -237,26 +238,6 @@ struct State {
     pos2: (usize, usize),
     n: usize,
     log: Vec<(usize, usize, usize)>,
-}
-
-impl Eq for State {}
-
-impl Ord for State {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.partial_cmp(other).unwrap()
-    }
-}
-
-impl PartialEq for State {
-    fn eq(&self, _: &Self) -> bool {
-        false
-    }
-}
-
-impl PartialOrd for State {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(other.score.cmp(&self.score))
-    }
 }
 
 pub struct IO<R, W: std::io::Write>(R, std::io::BufWriter<W>);
